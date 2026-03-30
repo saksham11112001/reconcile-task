@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Users2, GitCompare, RefreshCw,
   Settings, User, LogOut, FileSearch, UserCheck,
+  FileBarChart2, CreditCard, Palette, Building2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -88,18 +89,30 @@ export function Sidebar({ orgName, userName }: SidebarProps) {
           <FileSearch style={{ width: 16, height: 16 }}/>
           Document Requests
         </NavLink>
+        <NavLink href="/reports" active={isActive('/reports')}>
+          <FileBarChart2 style={{ width: 16, height: 16 }}/>
+          Reports
+        </NavLink>
 
         <NavLabel style={{ marginTop: '0.6rem' }}>Settings</NavLabel>
-        <NavLink href="/settings/organisation" active={isActive('/settings/organisation')}>
+        <NavLink href="/settings" active={isActive('/settings', true)}>
           <Settings style={{ width: 16, height: 16 }}/>
+          Settings
+        </NavLink>
+        <NavLink href="/settings/organisation" active={isActive('/settings/organisation')}>
+          <Building2 style={{ width: 16, height: 16 }}/>
           Organisation
         </NavLink>
         <NavLink href="/settings/members" active={isActive('/settings/members')}>
           <User style={{ width: 16, height: 16 }}/>
           Team Members
         </NavLink>
+        <NavLink href="/settings/billing" active={isActive('/settings/billing')}>
+          <CreditCard style={{ width: 16, height: 16 }}/>
+          Billing & Plan
+        </NavLink>
         <NavLink href="/settings/appearance" active={isActive('/settings/appearance')}>
-          <Settings style={{ width: 16, height: 16 }}/>
+          <Palette style={{ width: 16, height: 16 }}/>
           Appearance
         </NavLink>
       </nav>

@@ -249,3 +249,6 @@ html.dark .input {
 html.dark .btn-danger { background: #2d1010; color: #f87171; border-color: #7f1d1d; }
 
 .action-item-row:hover { background: var(--surface-subtle); }
+
+.recon-row:hover { background: var(--surface-subtle); }
+.recon-row:hover .recon-edit-btn { opacity: 1 !important; }

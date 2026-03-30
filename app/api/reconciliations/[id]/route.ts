@@ -57,7 +57,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
     }
 
     const body = await request.json()
-    const allowed = ['name', 'period_start', 'period_end', 'opening_balance', 'closing_balance', 'job_status', 'job_error']
+    const allowed = ['name', 'period_start', 'period_end', 'opening_balance', 'closing_balance', 'job_status', 'job_error', 'client_id', 'assignee_id', 'approver_id']
     const patch: Record<string, unknown> = {}
     for (const k of allowed) { if (k in body) patch[k] = body[k] }
 
