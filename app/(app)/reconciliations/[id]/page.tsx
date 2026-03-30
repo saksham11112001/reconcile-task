@@ -9,8 +9,9 @@ import { ActivityTimeline } from '@/components/reconciliation/ActivityTimeline'
 import { FinalizeWrapper }  from '@/components/reconciliation/FinalizeWrapper'
 import { fmtDate }      from '@/lib/utils/format'
 import Link             from 'next/link'
-import { FileText, CheckCircle, AlertCircle, Clock, TriangleAlert, ClipboardList } from 'lucide-react'
+import { CheckCircle, AlertCircle, Clock, TriangleAlert, ClipboardList } from 'lucide-react'
 import { RemindClientButton } from '@/components/reconciliation/RemindClientButton'
+import { FileUploadZone }     from '@/components/reconciliation/FileUploadZone'
 import type { Reconciliation, ReconUpload, OrgRole } from '@/types'
 
 interface Props { params: Promise<{ id: string }> }
@@ -158,15 +159,27 @@ export default async function ReconciliationWorkspacePage({ params }: Props) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem',
           marginTop: '1.25rem' }}>
 
-          {/* Uploaded files */}
+          {/* Uploaded files — interactive drop zones */}
           <div>
             <h3 style={{ margin: '0 0 0.75rem', fontSize: 12, fontWeight: 600,
               color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Uploaded Files
+              Upload Files
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <UploadCard label="Bank Statement"      upload={bankUpload} />
-              <UploadCard label="Ledger / Book entries" upload={bookUpload} />
+              <FileUploadZone
+                reconId={id}
+                fileType="bank_statement"
+                label="Bank Statement"
+                existingUpload={bankUpload}
+                disabled={r.is_finalized ?? false}
+              />
+              <FileUploadZone
+                reconId={id}
+                fileType="ledger"
+                label="Ledger / Book entries"
+                existingUpload={bookUpload}
+                disabled={r.is_finalized ?? false}
+              />
             </div>
           </div>
 
@@ -271,11 +284,7 @@ function JobStatusBanner({ jobStatus, jobError, reconId }: {
         background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}>
         <Clock style={{ width: 16, height: 16, color: 'var(--text-muted)', flexShrink: 0 }}/>
         <span style={{ fontSize: 13.5, color: 'var(--text-secondary)' }}>
-          No files uploaded yet.{' '}
-          <Link href={`/reconciliations/new?id=${reconId}`}
-            style={{ color: 'var(--brand)', fontWeight: 500 }}>
-            Upload files →
-          </Link>
+          No files uploaded yet. Click the upload zones below to add your bank statement and ledger.
         </span>
       </div>
     )
@@ -287,7 +296,7 @@ function JobStatusBanner({ jobStatus, jobError, reconId }: {
         background: '#eff6ff', border: '1px solid #bfdbfe' }}>
         <Clock style={{ width: 16, height: 16, color: '#1d4ed8', flexShrink: 0 }}/>
         <span style={{ fontSize: 13.5, color: '#1d4ed8' }}>
-          One file uploaded. Upload the second file to start matching.
+          One file uploaded — upload the second file below to start matching.
         </span>
       </div>
     )
@@ -378,36 +387,3 @@ function MismatchSummaryBar({ summary, reconId }: {
   )
 }
 
-function UploadCard({ label, upload }: { label: string; upload: ReconUpload | null }) {
-  return (
-    <div className="card" style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', gap: 12 }}>
-      <div style={{ width: 34, height: 34, borderRadius: 8, flexShrink: 0,
-        background: upload ? '#f0fdf4' : 'var(--surface-subtle)',
-        border: `1px solid ${upload ? '#bbf7d0' : 'var(--border)'}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {upload
-          ? <CheckCircle style={{ width: 17, height: 17, color: '#15803d' }}/>
-          : <FileText    style={{ width: 17, height: 17, color: 'var(--text-muted)' }}/>
-        }
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 600,
-          color: upload ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-          {label}
-        </div>
-        {upload ? (
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {upload.file_name}
-            {upload.file_size ? ` · ${(upload.file_size / 1024).toFixed(1)} KB` : ''}
-            {upload.row_count  ? ` · ${upload.row_count} rows` : ''}
-          </div>
-        ) : (
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1 }}>
-            Not uploaded
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}

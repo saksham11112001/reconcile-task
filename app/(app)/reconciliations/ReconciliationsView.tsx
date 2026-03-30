@@ -34,7 +34,7 @@ export function ReconciliationsView({ list: initial, clients, currentUserId, myM
   const [clientFilter, setClientFilter] = useState('')
   const [mine,         setMine]         = useState(myMode)
   const [editingId,    setEditingId]    = useState<string | null>(null)
-  const [inlineMode,   setInlineMode]   = useState(false)   // show inline add vs modal
+  const [inlineMode,   setInlineMode]   = useState(true)    // inline add is default
   const [viewMode,     setViewMode]     = useState<ViewMode>('list')
 
   const clientMap: Record<string, Pick<Client, 'name' | 'color'>> = {}
