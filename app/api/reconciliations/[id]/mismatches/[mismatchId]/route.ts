@@ -17,7 +17,7 @@ async function logAudit(
     actor_id:    userId,
     actor_name:  userName,
     meta:        { decision },
-  }).catch(() => {}) // non-blocking
+  }).then(null, () => {}) // non-blocking
 }
 
 interface Ctx { params: Promise<{ id: string; mismatchId: string }> }
