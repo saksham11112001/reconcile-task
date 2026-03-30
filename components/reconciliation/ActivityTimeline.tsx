@@ -75,7 +75,7 @@ export function ActivityTimeline({ reconId }: Props) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>
                     {cfg.label}
-                    {meta?.count && ` (${meta.count})`}
+                    {(meta as Record<string, unknown>)?.count ? ` (${(meta as Record<string, unknown>).count})` : null}
                   </div>
                   {log.actor_name && (
                     <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
