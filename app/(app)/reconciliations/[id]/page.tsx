@@ -10,6 +10,7 @@ import { FinalizeWrapper }  from '@/components/reconciliation/FinalizeWrapper'
 import { fmtDate }      from '@/lib/utils/format'
 import Link             from 'next/link'
 import { FileText, CheckCircle, AlertCircle, Clock, TriangleAlert, ClipboardList } from 'lucide-react'
+import { RemindClientButton } from '@/components/reconciliation/RemindClientButton'
 import type { Reconciliation, ReconUpload, OrgRole } from '@/types'
 
 interface Props { params: Promise<{ id: string }> }
@@ -108,6 +109,10 @@ export default async function ReconciliationWorkspacePage({ params }: Props) {
             {fmtDate(r.period_start)} – {fmtDate(r.period_end)}
           </span>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Remind client to upload files */}
+            {r.client_id && ['pending', 'uploaded'].includes(r.job_status) && canFinalize && (
+              <RemindClientButton reconId={id} />
+            )}
             {canFinalize && (
               <FinalizeWrapper
                 reconId={id}

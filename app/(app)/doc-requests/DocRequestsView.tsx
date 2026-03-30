@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { toast } from '@/store/appStore'
 import { fmtDate } from '@/lib/utils/format'
-import { Plus, FileSearch, X, Loader, ChevronDown } from 'lucide-react'
+import { Plus, FileSearch, X, Loader, ChevronDown, Bell } from 'lucide-react'
 import type { DocRequest, DocRequestStatus, Client } from '@/types'
 
 // ─── Status config ───────────────────────────────────────────────
@@ -234,10 +234,25 @@ function DocRequestRow({ request: r, canManage, onStatusChange }: {
   canManage:      boolean
   onStatusChange: (id: string, status: DocRequestStatus) => void
 }) {
-  const [actionDrop, setActionDrop] = useState(false)
-  const cfg = STATUS_CFG[r.status]
-  const today = new Date().toISOString().slice(0, 10)
+  const [actionDrop,  setActionDrop]  = useState(false)
+  const [reminding,   setReminding]   = useState(false)
+  const cfg     = STATUS_CFG[r.status]
+  const today   = new Date().toISOString().slice(0, 10)
   const isOverdue = r.due_date && r.due_date < today && r.status !== 'received' && r.status !== 'cancelled'
+  const canRemind = canManage && !['received', 'cancelled'].includes(r.status) && !!r.client_id
+
+  async function sendReminder() {
+    setReminding(true)
+    const res = await fetch(`/api/doc-requests/${r.id}/remind`, { method: 'POST' })
+    setReminding(false)
+    if (res.ok) {
+      const d = await res.json()
+      toast.success(`Reminder sent to ${d.sent_to ?? 'client'}.`)
+    } else {
+      const d = await res.json().catch(() => ({}))
+      toast.error(d.error ?? 'Failed to send reminder.')
+    }
+  }
 
   return (
     <tr style={{ borderBottom: '1px solid var(--border-light)' }}>
@@ -282,41 +297,64 @@ function DocRequestRow({ request: r, canManage, onStatusChange }: {
       </td>
       {canManage && (
         <td style={{ padding: '0.75rem 1rem', whiteSpace: 'nowrap' }}>
-          <div style={{ position: 'relative', display: 'inline-block' }}>
-            <button onClick={() => setActionDrop(v => !v)}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0.3rem 0.65rem',
-                fontSize: 12.5, fontWeight: 500, color: 'var(--text-secondary)',
-                background: 'transparent', border: '1px solid var(--border)',
-                borderRadius: 6, cursor: 'pointer' }}>
-              Update <ChevronDown style={{ width: 11, height: 11 }}/>
-            </button>
-            {actionDrop && (
-              <>
-                <div style={{ position: 'fixed', inset: 0, zIndex: 10 }}
-                  onClick={() => setActionDrop(false)}/>
-                <div style={{ position: 'absolute', right: 0, top: '110%', zIndex: 20,
-                  background: 'var(--surface)', border: '1px solid var(--border)',
-                  borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
-                  minWidth: 160, overflow: 'hidden' }}>
-                  {(['requested','pending','received','overdue','cancelled'] as DocRequestStatus[])
-                    .filter(s => s !== r.status)
-                    .map(s => {
-                      const c = STATUS_CFG[s]
-                      return (
-                        <button key={s}
-                          onClick={() => { onStatusChange(r.id, s); setActionDrop(false) }}
-                          style={{ display: 'block', width: '100%', textAlign: 'left',
-                            padding: '0.5rem 0.85rem', fontSize: 13, border: 'none',
-                            cursor: 'pointer', background: 'transparent',
-                            color: c.color }}>
-                          Mark as {c.label}
-                        </button>
-                      )
-                    })
-                  }
-                </div>
-              </>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+
+            {/* Send reminder button */}
+            {canRemind && (
+              <button
+                onClick={sendReminder}
+                disabled={reminding}
+                title="Send reminder email to client"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '0.3rem 0.65rem', fontSize: 12, fontWeight: 500,
+                  color: '#92400e', background: '#fffbeb',
+                  border: '1px solid #fde68a', borderRadius: 6, cursor: 'pointer',
+                  opacity: reminding ? 0.6 : 1 }}>
+                {reminding
+                  ? <Loader style={{ width: 11, height: 11 }} className="animate-spin"/>
+                  : <Bell style={{ width: 11, height: 11 }}/>
+                }
+                {reminding ? 'Sending…' : 'Remind'}
+              </button>
             )}
+
+            {/* Status update dropdown */}
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <button onClick={() => setActionDrop(v => !v)}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0.3rem 0.65rem',
+                  fontSize: 12.5, fontWeight: 500, color: 'var(--text-secondary)',
+                  background: 'transparent', border: '1px solid var(--border)',
+                  borderRadius: 6, cursor: 'pointer' }}>
+                Update <ChevronDown style={{ width: 11, height: 11 }}/>
+              </button>
+              {actionDrop && (
+                <>
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 10 }}
+                    onClick={() => setActionDrop(false)}/>
+                  <div style={{ position: 'absolute', right: 0, top: '110%', zIndex: 20,
+                    background: 'var(--surface)', border: '1px solid var(--border)',
+                    borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+                    minWidth: 160, overflow: 'hidden' }}>
+                    {(['requested','pending','received','overdue','cancelled'] as DocRequestStatus[])
+                      .filter(s => s !== r.status)
+                      .map(s => {
+                        const c = STATUS_CFG[s]
+                        return (
+                          <button key={s}
+                            onClick={() => { onStatusChange(r.id, s); setActionDrop(false) }}
+                            style={{ display: 'block', width: '100%', textAlign: 'left',
+                              padding: '0.5rem 0.85rem', fontSize: 13, border: 'none',
+                              cursor: 'pointer', background: 'transparent',
+                              color: c.color }}>
+                            Mark as {c.label}
+                          </button>
+                        )
+                      })
+                    }
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </td>
       )}

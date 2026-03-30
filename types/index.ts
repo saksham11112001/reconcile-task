@@ -263,6 +263,7 @@ export type AuditAction =
   | 'recon_finalized'
   | 'recon_unfinalized'
   | 'upload_created'
+  | 'upload_reminder_sent'
   | 'mismatch_resolved'
   | 'mismatch_ignored'
   | 'mismatch_escalated'
@@ -272,6 +273,7 @@ export type AuditAction =
   | 'doc_requested'
   | 'doc_received'
   | 'doc_cancelled'
+  | 'doc_reminder_sent'
   | 'checklist_updated'
 
 export interface AuditLog {

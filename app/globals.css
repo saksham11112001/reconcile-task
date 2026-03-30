@@ -252,3 +252,24 @@ html.dark .btn-danger { background: #2d1010; color: #f87171; border-color: #7f1d
 
 .recon-row:hover { background: var(--surface-subtle); }
 .recon-row:hover .recon-edit-btn { opacity: 1 !important; }
+
+/* ── Kanban board ───────────────────────────────────────────── */
+.kanban-col {
+  flex-shrink: 0;
+  background: var(--surface-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: fit-content;
+  max-height: calc(100vh - 220px);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+html.dark .kanban-col {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+/* Card hover already handled by card-elevated:hover */

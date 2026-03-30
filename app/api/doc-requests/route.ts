@@ -1,6 +1,7 @@
-import { NextResponse }      from 'next/server'
-import { createClient }      from '@/lib/supabase/api'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { NextResponse }           from 'next/server'
+import { createClient }           from '@/lib/supabase/api'
+import { createAdminClient }      from '@/lib/supabase/admin'
+import { sendClientDocRequest }   from '@/lib/email/templates/client-doc-request'
 
 // GET /api/doc-requests?client_id=&recon_id=&status=
 export async function GET(request: Request) {
@@ -99,6 +100,38 @@ export async function POST(request: Request) {
       actor_name:  (profile as { name?: string } | null)?.name ?? null,
       meta:        { title: data.title, client_id, reconciliation_id },
     })
+
+    // ── Auto-notify client if they have a contact email ──────────
+    if (client_id) {
+      const [{ data: clientRow }, { data: orgRow }, { data: reconRow }] = await Promise.all([
+        admin.from('clients').select('email, contact_person, name').eq('id', client_id).maybeSingle(),
+        admin.from('organisations').select('name').eq('id', mb.org_id).maybeSingle(),
+        reconciliation_id
+          ? admin.from('reconciliations').select('name').eq('id', reconciliation_id).maybeSingle()
+          : Promise.resolve({ data: null }),
+      ])
+      const clientEmail = (clientRow as { email?: string | null } | null)?.email
+      if (clientEmail) {
+        const orgName     = (orgRow as { name?: string } | null)?.name ?? 'Your CA firm'
+        const clientName  = (clientRow as { contact_person?: string | null; name?: string } | null)?.contact_person
+                         || (clientRow as { name?: string } | null)?.name
+                         || 'there'
+        const reconName   = (reconRow as { name?: string } | null)?.name ?? null
+        const fmtDue      = data.due_date
+          ? new Date(data.due_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+          : null
+        sendClientDocRequest({
+          to:           clientEmail,
+          clientName,
+          orgName,
+          requestTitle: data.title,
+          description:  data.description ?? null,
+          dueDate:      fmtDue,
+          reconName,
+          requestId:    data.id,
+        }).catch(err => console.error('[doc-request notify client]', err))
+      }
+    }
 
     return NextResponse.json(data, { status: 201 })
   } catch (err) {
