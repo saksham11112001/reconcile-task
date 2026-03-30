@@ -38,7 +38,7 @@ export default async function DocRequestsPage() {
     recon_name:  (r.reconciliations as { name?: string } | null)?.name ?? null,
     clients:     undefined,
     reconciliations: undefined,
-  })) as DocRequest[]
+  })) as unknown as DocRequest[]
 
   const canManage = CAN_MANAGE.includes(mb.role as OrgRole)
 
