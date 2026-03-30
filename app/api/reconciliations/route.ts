@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     if (!mb) return NextResponse.json({ error: 'No org' }, { status: 403 })
 
     const body = await request.json()
-    const { name, period_start, period_end, opening_balance, closing_balance, client_id } = body
+    const { name, period_start, period_end, opening_balance, closing_balance, client_id, assignee_id, approver_id } = body
 
     if (!name?.trim() || !period_start || !period_end) {
       return NextResponse.json({ error: 'name, period_start and period_end are required.' }, { status: 400 })
@@ -62,6 +62,8 @@ export async function POST(request: Request) {
         period_end,
         opening_balance: opening_balance ?? 0,
         closing_balance: closing_balance ?? 0,
+        assignee_id:     assignee_id || null,
+        approver_id:     approver_id || null,
         status:          'draft',
         job_status:      'pending',
         created_by:      user.id,

@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Users2, GitCompare, RefreshCw,
-  Settings, User, LogOut, FileSearch,
+  Settings, User, LogOut, FileSearch, UserCheck,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -70,10 +70,15 @@ export function Sidebar({ orgName, userName }: SidebarProps) {
         <NavLink href="/reconciliations" active={
           isActive('/reconciliations') &&
           !isActive('/reconciliations/schedules') &&
-          !isActive('/reconciliations/new')
+          !isActive('/reconciliations/new') &&
+          !isActive('/reconciliations/my')
         }>
           <GitCompare style={{ width: 16, height: 16 }}/>
           All Reconciliations
+        </NavLink>
+        <NavLink href="/reconciliations/my" active={isActive('/reconciliations/my')}>
+          <UserCheck style={{ width: 16, height: 16 }}/>
+          My Reconciliations
         </NavLink>
         <NavLink href="/reconciliations/schedules" active={isActive('/reconciliations/schedules')}>
           <RefreshCw style={{ width: 16, height: 16 }}/>

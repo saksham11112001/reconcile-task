@@ -50,13 +50,24 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { memberId, role } = await request.json()
+    const body = await request.json()
+    const { memberId, role, name, userId } = body
+
+    const admin = createAdminClient()
+
+    // Update name on the users table
+    if (typeof name === 'string' && userId) {
+      const { error } = await admin.from('users').update({ name: name.trim() }).eq('id', userId)
+      if (error) throw error
+      return NextResponse.json({ ok: true })
+    }
+
+    // Update role
     const validRoles = ['admin', 'reviewer', 'analyst', 'viewer']
     if (!memberId || !validRoles.includes(role)) {
       return NextResponse.json({ error: 'Invalid request.' }, { status: 400 })
     }
 
-    const admin = createAdminClient()
     const { error } = await admin
       .from('org_members')
       .update({ role })

@@ -27,6 +27,7 @@ Run all migrations in order in the Supabase SQL editor:
 4. `supabase/MIGRATIONS/003_clients_recurring.sql`
 5. `supabase/MIGRATIONS/004_storage_bucket.sql`
 6. `supabase/MIGRATIONS/005_features.sql`
+7. `supabase/MIGRATIONS/006_assignee_approver.sql`
 
 ### Supabase Auth Config
 - Go to **Authentication → URL Configuration**

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from '@/store/appStore'
-import { Plus, X, Loader, UserCheck, Clock } from 'lucide-react'
+import { Plus, X, Loader, UserCheck, Clock, Pencil, Check } from 'lucide-react'
 import { fmtDate } from '@/lib/utils/format'
 import type { OrgRole } from '@/types'
 
@@ -32,9 +32,31 @@ const ROLE_CFG: Record<OrgRole, { label: string; color: string; bg: string }> = 
 const ASSIGNABLE_ROLES: OrgRole[] = ['admin','reviewer','analyst','viewer']
 
 export function MembersView({ members: initial, currentRole }: Props) {
-  const [members,  setMembers]  = useState<Member[]>(initial)
+  const [members,   setMembers]   = useState<Member[]>(initial)
   const [showInvite, setShowInvite] = useState(false)
+  const [editingId,  setEditingId]  = useState<string | null>(null)
+  const [editName,   setEditName]   = useState('')
   const canManage = ['owner','admin'].includes(currentRole)
+
+  function startEditName(m: Member) {
+    setEditingId(m.id)
+    setEditName(m.users?.name ?? '')
+  }
+
+  async function saveName(m: Member) {
+    if (!m.users?.id) return
+    const res = await fetch('/api/team', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ userId: m.users.id, name: editName }),
+    })
+    if (!res.ok) { toast.error('Failed to update name.'); return }
+    setMembers(prev => prev.map(x => x.id === m.id
+      ? { ...x, users: x.users ? { ...x.users, name: editName } : x.users }
+      : x))
+    setEditingId(null)
+    toast.success('Name updated.')
+  }
 
   async function handleRoleChange(memberId: string, newRole: OrgRole) {
     const res = await fetch('/api/team', {
@@ -101,14 +123,49 @@ export function MembersView({ members: initial, currentRole }: Props) {
                 {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>
-                      {name}
-                    </span>
-                    {!m.is_active && (
-                      <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4,
-                        background: '#fffbeb', color: '#92400e', fontWeight: 600 }}>
-                        Invited
-                      </span>
+                    {canManage && editingId === m.id ? (
+                      <>
+                        <input
+                          value={editName}
+                          onChange={e => setEditName(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') saveName(m); if (e.key === 'Escape') setEditingId(null) }}
+                          style={{ fontSize: 13.5, fontWeight: 500, padding: '2px 6px',
+                            border: '1px solid var(--brand)', borderRadius: 5,
+                            background: 'var(--surface)', color: 'var(--text-primary)',
+                            outline: 'none', width: 160 }}
+                          autoFocus
+                        />
+                        <button onClick={() => saveName(m)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer',
+                            color: 'var(--brand)', padding: 2, display: 'flex' }}>
+                          <Check style={{ width: 14, height: 14 }}/>
+                        </button>
+                        <button onClick={() => setEditingId(null)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer',
+                            color: 'var(--text-muted)', padding: 2, display: 'flex' }}>
+                          <X style={{ width: 14, height: 14 }}/>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>
+                          {name}
+                        </span>
+                        {!m.is_active && (
+                          <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4,
+                            background: '#fffbeb', color: '#92400e', fontWeight: 600 }}>
+                            Invited
+                          </span>
+                        )}
+                        {canManage && (
+                          <button onClick={() => startEditName(m)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer',
+                              color: 'var(--text-muted)', padding: 2, display: 'flex',
+                              opacity: 0.6 }}>
+                            <Pencil style={{ width: 11, height: 11 }}/>
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>

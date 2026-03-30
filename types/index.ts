@@ -57,6 +57,8 @@ export interface Reconciliation {
   is_finalized: boolean
   finalized_at: string | null
   finalized_by: string | null
+  assignee_id: string | null
+  approver_id: string | null
   created_by: string | null
   completed_at: string | null
   created_at: string
