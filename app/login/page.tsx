@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -9,7 +9,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   no_code:         'Invalid login link. Please request a new one.',
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const redirectTo   = searchParams.get('redirect') ?? '/dashboard'
@@ -58,7 +58,8 @@ export default function LoginPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#0f172a', display: 'flex',
-      alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
+      alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}
+    >
       <div style={{ width: '100%', maxWidth: 380 }}>
 
         {/* Logo */}
@@ -142,5 +143,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }

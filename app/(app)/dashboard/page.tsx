@@ -365,17 +365,10 @@ function ActionItem({ href, icon, label, sub, accent }: {
   accent: string
 }) {
   return (
-    <Link href={href}
+    <Link href={href} className="action-item-row"
       style={{ display: 'flex', alignItems: 'center', gap: 10,
         padding: '0.6rem 1.1rem', textDecoration: 'none',
-        borderBottom: '1px solid var(--border-light)',
-        transition: 'background 0.1s' }}
-      onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-        (e.currentTarget as HTMLElement).style.background = 'var(--surface-subtle)'
-      }}
-      onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
-        (e.currentTarget as HTMLElement).style.background = ''
-      }}>
+        borderBottom: '1px solid var(--border-light)' }}>
       <div style={{ flexShrink: 0 }}>{icon}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)',
