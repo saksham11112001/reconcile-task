@@ -16,7 +16,7 @@ export interface User {
   created_at: string
 }
 
-export type OrgRole = 'owner' | 'admin' | 'reviewer' | 'analyst' | 'viewer'
+export type OrgRole = 'owner' | 'admin' | 'reviewer' | 'analyst' | 'viewer' | 'client_upload'
 
 export interface OrgMember {
   id: string
@@ -54,6 +54,9 @@ export interface Reconciliation {
   net_difference: number
   total_mismatches: number
   open_mismatches: number
+  is_finalized: boolean
+  finalized_at: string | null
+  finalized_by: string | null
   created_by: string | null
   completed_at: string | null
   created_at: string
@@ -158,6 +161,8 @@ export interface MismatchDecision {
 
 export type ClientStatus = 'active' | 'inactive' | 'prospect'
 
+export type ClientHealth = 'healthy' | 'needs_review' | 'at_risk'
+
 export interface Client {
   id:             string
   org_id:         string
@@ -182,6 +187,7 @@ export interface ClientSummary extends Client {
   total_reconciliations: number
   last_period_end:       string | null
   last_job_status:       string | null
+  health:                ClientHealth
 }
 
 // ─── Recurring Reconciliations ─────────────────────────────────
@@ -208,6 +214,74 @@ export interface RecurringRecon {
   client_name?:  string | null
   next_due_date?: string | null
   last_created_at?: string | null
+}
+
+// ─── Document Requests ─────────────────────────────────────────
+
+export type DocRequestStatus = 'requested' | 'received' | 'pending' | 'overdue' | 'cancelled'
+
+export interface DocRequest {
+  id:                 string
+  org_id:             string
+  client_id:          string | null
+  reconciliation_id:  string | null
+  title:              string
+  description:        string | null
+  status:             DocRequestStatus
+  due_date:           string | null
+  requested_by:       string | null
+  responded_at:       string | null
+  created_at:         string
+  updated_at:         string
+  // joined
+  client_name?:       string | null
+  recon_name?:        string | null
+}
+
+// ─── Reconciliation Checklist ──────────────────────────────────
+
+export interface ReconChecklist {
+  id:                  string
+  org_id:              string
+  reconciliation_id:   string
+  uploads_received:    boolean
+  review_complete:     boolean
+  exceptions_handled:  boolean
+  documents_complete:  boolean
+  ready_to_finalize:   boolean
+  notes:               string | null
+  updated_by:          string | null
+  updated_at:          string
+}
+
+// ─── Audit Log ─────────────────────────────────────────────────
+
+export type AuditAction =
+  | 'recon_created'
+  | 'recon_finalized'
+  | 'recon_unfinalized'
+  | 'upload_created'
+  | 'mismatch_resolved'
+  | 'mismatch_ignored'
+  | 'mismatch_escalated'
+  | 'mismatch_reopened'
+  | 'client_created'
+  | 'client_updated'
+  | 'doc_requested'
+  | 'doc_received'
+  | 'doc_cancelled'
+  | 'checklist_updated'
+
+export interface AuditLog {
+  id:          string
+  org_id:      string
+  entity_type: string
+  entity_id:   string
+  action:      AuditAction | string
+  actor_id:    string | null
+  actor_name:  string | null
+  meta:        Record<string, unknown> | null
+  created_at:  string
 }
 
 // ─── Session (Zustand store) ────────────────────────────────────

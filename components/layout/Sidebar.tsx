@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Users2, GitCompare, RefreshCw,
-  Settings, User, LogOut,
+  Settings, User, LogOut, FileSearch,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -45,7 +45,9 @@ export function Sidebar({ orgName, userName }: SidebarProps) {
           <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.2 }}>
             Reconcile
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.2 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.2,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            maxWidth: 160 }}>
             {orgName}
           </div>
         </div>
@@ -64,10 +66,11 @@ export function Sidebar({ orgName, userName }: SidebarProps) {
           Clients
         </NavLink>
 
-        {/* Reconciliations group */}
         <NavLabel style={{ marginTop: '0.6rem' }}>Reconciliations</NavLabel>
         <NavLink href="/reconciliations" active={
-          isActive('/reconciliations') && !isActive('/reconciliations/schedules')
+          isActive('/reconciliations') &&
+          !isActive('/reconciliations/schedules') &&
+          !isActive('/reconciliations/new')
         }>
           <GitCompare style={{ width: 16, height: 16 }}/>
           All Reconciliations
@@ -75,6 +78,10 @@ export function Sidebar({ orgName, userName }: SidebarProps) {
         <NavLink href="/reconciliations/schedules" active={isActive('/reconciliations/schedules')}>
           <RefreshCw style={{ width: 16, height: 16 }}/>
           Recurring Schedules
+        </NavLink>
+        <NavLink href="/doc-requests" active={isActive('/doc-requests')}>
+          <FileSearch style={{ width: 16, height: 16 }}/>
+          Document Requests
         </NavLink>
 
         <NavLabel style={{ marginTop: '0.6rem' }}>Settings</NavLabel>
@@ -108,7 +115,8 @@ export function Sidebar({ orgName, userName }: SidebarProps) {
         </div>
         <button onClick={handleSignOut} title="Sign out"
           style={{ background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--text-muted)', padding: 4, borderRadius: 5 }}>
+            color: 'var(--text-muted)', padding: 4, borderRadius: 5,
+            display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <LogOut style={{ width: 15, height: 15 }}/>
         </button>
       </div>
@@ -116,7 +124,7 @@ export function Sidebar({ orgName, userName }: SidebarProps) {
   )
 }
 
-// ─── Helpers ────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────
 
 function NavLabel({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (

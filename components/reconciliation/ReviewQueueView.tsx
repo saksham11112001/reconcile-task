@@ -4,10 +4,11 @@ import { useState, useMemo } from 'react'
 import { ReviewStatusBadge, MismatchTypeBadge, SeverityBadge } from '@/components/ui/Badge'
 import { MismatchDetailPanel } from './MismatchDetailPanel'
 import { fmtDate } from '@/lib/utils/format'
-import { ChevronDown, Filter } from 'lucide-react'
+import { toast } from '@/store/appStore'
+import { ChevronDown, Filter, CheckSquare, Square, Loader } from 'lucide-react'
 import type { ReconMismatch, ReviewStatus, MismatchType, DecisionType } from '@/types'
 
-// ─── Label maps (used in filter dropdown + empty state copy) ───
+// ─── Label maps ─────────────────────────────────────────────────
 
 const TYPE_LABELS: Record<MismatchType, string> = {
   missing_in_bank:   'Missing in Bank',
@@ -27,14 +28,14 @@ const STATUS_TABS: { value: ReviewStatus | 'all'; label: string }[] = [
   { value: 'ignored',   label: 'Ignored'   },
 ]
 
-// ─── Props ─────────────────────────────────────────────────────
+// ─── Props ──────────────────────────────────────────────────────
 
 interface Props {
   mismatches: ReconMismatch[]
   reconId:    string
 }
 
-// ─── Component ─────────────────────────────────────────────────
+// ─── Component ──────────────────────────────────────────────────
 
 export function ReviewQueueView({ mismatches: initial, reconId }: Props) {
   const [items,          setItems]          = useState<ReconMismatch[]>(initial)
@@ -42,6 +43,10 @@ export function ReviewQueueView({ mismatches: initial, reconId }: Props) {
   const [typeFilter,     setTypeFilter]     = useState<MismatchType | 'all'>('all')
   const [selectedId,     setSelectedId]     = useState<string | null>(null)
   const [typeDropOpen,   setTypeDropOpen]   = useState(false)
+
+  // ── Bulk selection ─────────────────────────────────────────
+  const [selectedIds,  setSelectedIds]  = useState<Set<string>>(new Set())
+  const [bulkLoading,  setBulkLoading]  = useState(false)
 
   // ── Counts per status tab ──────────────────────────────────
   const counts = useMemo(() => {
@@ -57,14 +62,14 @@ export function ReviewQueueView({ mismatches: initial, reconId }: Props) {
   const filtered = useMemo(() => {
     return items.filter(m => {
       if (statusTab !== 'all' && m.review_status !== statusTab) return false
-      if (typeFilter !== 'all' && m.mismatch_type   !== typeFilter) return false
+      if (typeFilter !== 'all' && m.mismatch_type !== typeFilter) return false
       return true
     })
   }, [items, statusTab, typeFilter])
 
   const selected = items.find(m => m.id === selectedId) ?? null
 
-  // ── Optimistic decision update ─────────────────────────────
+  // ── Optimistic decision update (single) ───────────────────
   function handleDecision(mismatchId: string, decision: DecisionType) {
     const statusMap: Record<DecisionType, ReviewStatus> = {
       resolved:  'resolved',
@@ -77,44 +82,112 @@ export function ReviewQueueView({ mismatches: initial, reconId }: Props) {
         m.id === mismatchId ? { ...m, review_status: statusMap[decision] } : m
       )
     )
-    // Close panel if item moves out of current tab filter
     if (statusTab !== 'all') {
-      const newStatus = statusMap[decision]
-      if (newStatus !== statusTab) setSelectedId(null)
+      if (statusMap[decision] !== statusTab) setSelectedId(null)
+    }
+    // Clear from bulk selection
+    setSelectedIds(prev => { const n = new Set(prev); n.delete(mismatchId); return n })
+  }
+
+  // ── Bulk actions ───────────────────────────────────────────
+  const filteredIds = useMemo(() => new Set(filtered.map(m => m.id)), [filtered])
+  const allFilteredSelected = filteredIds.size > 0 &&
+    [...filteredIds].every(id => selectedIds.has(id))
+
+  function toggleSelectAll() {
+    if (allFilteredSelected) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        filtered.forEach(m => next.add(m.id))
+        return next
+      })
     }
   }
 
-  // ── Active type label ──────────────────────────────────────
-  const typeLabel = typeFilter === 'all' ? 'All types' : TYPE_LABELS[typeFilter]
+  function toggleSelectOne(id: string) {
+    setSelectedIds(prev => {
+      const n = new Set(prev)
+      if (n.has(id)) n.delete(id); else n.add(id)
+      return n
+    })
+  }
 
-  // ── Unique types present in the list ──────────────────────
+  async function handleBulkAction(decision: DecisionType) {
+    const ids = [...selectedIds].filter(id => filteredIds.has(id))
+    if (ids.length === 0) return
+
+    setBulkLoading(true)
+    const res = await fetch(`/api/reconciliations/${reconId}/mismatches/bulk`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ ids, decision }),
+    })
+    setBulkLoading(false)
+
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      toast.error(d.error ?? 'Bulk action failed.')
+      return
+    }
+
+    const statusMap: Record<DecisionType, ReviewStatus> = {
+      resolved:  'resolved',
+      ignored:   'ignored',
+      escalated: 'escalated',
+      reopened:  'open',
+    }
+    const newStatus = statusMap[decision]
+    setItems(prev =>
+      prev.map(m => ids.includes(m.id) ? { ...m, review_status: newStatus } : m)
+    )
+    setSelectedIds(new Set())
+    toast.success(`${ids.length} item${ids.length !== 1 ? 's' : ''} ${decision}.`)
+  }
+
+  // ── UI helpers ─────────────────────────────────────────────
+  const typeLabel = typeFilter === 'all' ? 'All types' : TYPE_LABELS[typeFilter]
   const availableTypes = useMemo(() =>
     Array.from(new Set(items.map(m => m.mismatch_type))) as MismatchType[],
     [items]
   )
+  const bulkCount = [...selectedIds].filter(id => filteredIds.has(id)).length
 
-  // ────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
 
   return (
     <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
 
       {/* ── Main panel ── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden',
-        minWidth: 0 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
 
-        {/* Filter bar */}
+        {/* ── Filter bar ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 0,
           borderBottom: '1px solid var(--border)', background: 'var(--surface)',
           flexShrink: 0, padding: '0 1rem' }}>
 
+          {/* Bulk select-all checkbox */}
+          <button
+            onClick={toggleSelectAll}
+            title={allFilteredSelected ? 'Deselect all' : 'Select all visible'}
+            style={{ padding: '0.6rem 0.4rem', background: 'none', border: 'none',
+              cursor: 'pointer', color: 'var(--text-muted)',
+              display: 'flex', alignItems: 'center', marginRight: 4 }}>
+            {allFilteredSelected
+              ? <CheckSquare style={{ width: 15, height: 15, color: 'var(--brand)' }}/>
+              : <Square style={{ width: 15, height: 15 }}/>
+            }
+          </button>
+
           {/* Status tabs */}
           <div style={{ display: 'flex', alignItems: 'center' }}>
             {STATUS_TABS.map(tab => {
-              const count = counts[tab.value]
+              const count  = counts[tab.value]
               const active = statusTab === tab.value
               return (
                 <button key={tab.value}
-                  onClick={() => { setStatusTab(tab.value); setSelectedId(null) }}
+                  onClick={() => { setStatusTab(tab.value); setSelectedId(null); setSelectedIds(new Set()) }}
                   style={{
                     padding: '0.7rem 0.85rem',
                     fontSize: 13.5, fontWeight: active ? 600 : 400,
@@ -127,8 +200,7 @@ export function ReviewQueueView({ mismatches: initial, reconId }: Props) {
                   {tab.label}
                   {count > 0 && (
                     <span style={{
-                      fontSize: 11, fontWeight: 600, padding: '1px 6px',
-                      borderRadius: 10,
+                      fontSize: 11, fontWeight: 600, padding: '1px 6px', borderRadius: 10,
                       background: active ? 'var(--brand-light)' : 'var(--border-light)',
                       color: active ? 'var(--brand)' : 'var(--text-muted)',
                     }}>
@@ -141,18 +213,20 @@ export function ReviewQueueView({ mismatches: initial, reconId }: Props) {
           </div>
 
           <div style={{ flex: 1 }}/>
-          {filtered.length > 0 && (
+
+          {filtered.length > 0 && bulkCount === 0 && (
             <span style={{ fontSize: 12, color: 'var(--text-muted)', paddingRight: '0.5rem' }}>
               {filtered.length} item{filtered.length !== 1 ? 's' : ''}
             </span>
           )}
 
           {/* Type filter dropdown */}
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', marginLeft: 4 }}>
             <button
               onClick={() => setTypeDropOpen(v => !v)}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0.45rem 0.8rem',
-                fontSize: 13, color: typeFilter !== 'all' ? 'var(--brand)' : 'var(--text-secondary)',
+              style={{ display: 'flex', alignItems: 'center', gap: 6,
+                padding: '0.45rem 0.8rem', fontSize: 13,
+                color: typeFilter !== 'all' ? 'var(--brand)' : 'var(--text-secondary)',
                 background: typeFilter !== 'all' ? 'var(--brand-light)' : 'transparent',
                 border: '1px solid', borderColor: typeFilter !== 'all' ? 'var(--brand-border)' : 'var(--border)',
                 borderRadius: 7, cursor: 'pointer', fontWeight: 500 }}>
@@ -178,7 +252,8 @@ export function ReviewQueueView({ mismatches: initial, reconId }: Props) {
                         padding: '0.55rem 0.9rem', fontSize: 13,
                         background: typeFilter === opt.value ? 'var(--brand-light)' : 'transparent',
                         color:      typeFilter === opt.value ? 'var(--brand)' : 'var(--text-primary)',
-                        border: 'none', cursor: 'pointer', fontWeight: typeFilter === opt.value ? 600 : 400 }}>
+                        border: 'none', cursor: 'pointer',
+                        fontWeight: typeFilter === opt.value ? 600 : 400 }}>
                       {opt.label}
                     </button>
                   ))}
@@ -188,20 +263,57 @@ export function ReviewQueueView({ mismatches: initial, reconId }: Props) {
           </div>
         </div>
 
-        {/* Table */}
+        {/* ── Bulk action bar ── */}
+        {bulkCount > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8,
+            padding: '0.55rem 1rem', borderBottom: '1px solid var(--border)',
+            background: 'var(--brand-light)', flexShrink: 0 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--brand)' }}>
+              {bulkCount} selected
+            </span>
+            <div style={{ flex: 1 }}/>
+            {bulkLoading ? (
+              <Loader style={{ width: 14, height: 14, color: 'var(--brand)' }} className="animate-spin"/>
+            ) : (
+              <>
+                <button onClick={() => handleBulkAction('resolved')}
+                  className="btn btn-sm"
+                  style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
+                  Resolve all
+                </button>
+                <button onClick={() => handleBulkAction('ignored')}
+                  className="btn btn-sm"
+                  style={{ background: '#f8fafc', color: '#475569', border: '1px solid #e2e8f0' }}>
+                  Ignore all
+                </button>
+                <button onClick={() => handleBulkAction('escalated')}
+                  className="btn btn-sm"
+                  style={{ background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a' }}>
+                  Escalate all
+                </button>
+                <button onClick={() => setSelectedIds(new Set())}
+                  className="btn btn-ghost btn-sm"
+                  style={{ color: 'var(--text-muted)' }}>
+                  Clear
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ── Table ── */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {filtered.length === 0 ? (
             <EmptyState statusTab={statusTab} typeFilter={typeFilter} />
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
-                <tr style={{ background: 'var(--surface-subtle)',
-                  borderBottom: '1px solid var(--border)' }}>
+                <tr style={{ background: 'var(--surface-subtle)', borderBottom: '1px solid var(--border)' }}>
+                  <th style={{ padding: '0.55rem 0.5rem 0.55rem 1rem', width: 36 }}/>
                   {['Type', 'Severity', 'Description', 'Detected', 'Status', ''].map(h => (
                     <th key={h} style={{ padding: '0.55rem 1rem', textAlign: 'left',
                       fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)',
-                      textTransform: 'uppercase', letterSpacing: '0.06em',
-                      whiteSpace: 'nowrap' }}>
+                      textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
                       {h}
                     </th>
                   ))}
@@ -213,6 +325,8 @@ export function ReviewQueueView({ mismatches: initial, reconId }: Props) {
                     key={m.id}
                     mismatch={m}
                     selected={selectedId === m.id}
+                    checked={selectedIds.has(m.id)}
+                    onCheck={e => { e.stopPropagation(); toggleSelectOne(m.id) }}
                     onClick={() => setSelectedId(m.id === selectedId ? null : m.id)}
                   />
                 ))}
@@ -222,7 +336,7 @@ export function ReviewQueueView({ mismatches: initial, reconId }: Props) {
         </div>
       </div>
 
-      {/* ── Detail panel (slides in from right) ── */}
+      {/* ── Detail panel ── */}
       {selected && (
         <MismatchDetailPanel
           mismatch={selected}
@@ -235,43 +349,48 @@ export function ReviewQueueView({ mismatches: initial, reconId }: Props) {
   )
 }
 
-// ─── Row ───────────────────────────────────────────────────────
+// ─── Row ────────────────────────────────────────────────────────
 
-function MismatchRow({ mismatch: m, selected, onClick }: {
+function MismatchRow({ mismatch: m, selected, checked, onCheck, onClick }: {
   mismatch: ReconMismatch
   selected: boolean
+  checked:  boolean
+  onCheck:  (e: React.MouseEvent) => void
   onClick:  () => void
 }) {
-  const desc = m.description
-    ?? defaultDescription(m.mismatch_type, m.diff_data)
+  const desc = m.description ?? defaultDescription(m.mismatch_type, m.diff_data)
 
   return (
     <tr onClick={onClick}
       style={{
         borderBottom: '1px solid var(--border-light)',
-        background: selected ? 'var(--brand-light)' : 'var(--surface)',
+        background: selected ? 'var(--brand-light)' : checked ? '#f0fdf4' : 'var(--surface)',
         cursor: 'pointer',
         borderLeft: selected ? '3px solid var(--brand)' : '3px solid transparent',
         transition: 'background 0.1s',
       }}
-      onMouseEnter={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = 'var(--surface-subtle)' }}
-      onMouseLeave={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = 'var(--surface)' }}>
+      onMouseEnter={e => { if (!selected && !checked) (e.currentTarget as HTMLElement).style.background = 'var(--surface-subtle)' }}
+      onMouseLeave={e => { if (!selected && !checked) (e.currentTarget as HTMLElement).style.background = 'var(--surface)' }}>
 
+      <td style={{ padding: '0.75rem 0.5rem 0.75rem 1rem' }} onClick={onCheck}>
+        {checked
+          ? <CheckSquare style={{ width: 15, height: 15, color: 'var(--brand)' }}/>
+          : <Square      style={{ width: 15, height: 15, color: 'var(--text-muted)' }}/>
+        }
+      </td>
       <td style={{ padding: '0.75rem 1rem', whiteSpace: 'nowrap' }}>
         <MismatchTypeBadge type={m.mismatch_type} />
       </td>
       <td style={{ padding: '0.75rem 1rem', whiteSpace: 'nowrap' }}>
         <SeverityBadge severity={m.severity} />
       </td>
-      <td style={{ padding: '0.75rem 1rem', fontSize: 13.5,
-        color: 'var(--text-primary)', maxWidth: 340 }}>
+      <td style={{ padding: '0.75rem 1rem', fontSize: 13.5, color: 'var(--text-primary)', maxWidth: 340 }}>
         <span style={{ display: '-webkit-box', WebkitLineClamp: 1,
           WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {desc || '—'}
         </span>
       </td>
-      <td style={{ padding: '0.75rem 1rem', fontSize: 12.5,
-        color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+      <td style={{ padding: '0.75rem 1rem', fontSize: 12.5, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
         {fmtDate(m.detected_at)}
       </td>
       <td style={{ padding: '0.75rem 1rem', whiteSpace: 'nowrap' }}>
@@ -287,7 +406,7 @@ function MismatchRow({ mismatch: m, selected, onClick }: {
   )
 }
 
-// ─── Empty state ───────────────────────────────────────────────
+// ─── Empty state ────────────────────────────────────────────────
 
 function EmptyState({ statusTab, typeFilter }: {
   statusTab:  ReviewStatus | 'all'
@@ -325,7 +444,7 @@ function EmptyState({ statusTab, typeFilter }: {
   )
 }
 
-// ─── Fallback description from diff_data ───────────────────────
+// ─── Fallback description from diff_data ────────────────────────
 
 function defaultDescription(type: MismatchType, diff: Record<string, unknown> | null): string {
   if (!diff) return ''

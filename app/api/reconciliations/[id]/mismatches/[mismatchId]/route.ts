@@ -2,6 +2,24 @@ import { NextResponse }      from 'next/server'
 import { createClient }      from '@/lib/supabase/api'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// ─── Audit helper ───────────────────────────────────────────────
+
+async function logAudit(
+  admin: ReturnType<typeof createAdminClient>,
+  orgId: string, reconId: string, decision: string,
+  userId: string, userName: string | null,
+) {
+  await admin.from('audit_logs').insert({
+    org_id:      orgId,
+    entity_type: 'reconciliation',
+    entity_id:   reconId,
+    action:      `mismatch_${decision}`,
+    actor_id:    userId,
+    actor_name:  userName,
+    meta:        { decision },
+  }).catch(() => {}) // non-blocking
+}
+
 interface Ctx { params: Promise<{ id: string; mismatchId: string }> }
 
 // ─── PATCH /api/reconciliations/[id]/mismatches/[mismatchId] ──
@@ -99,6 +117,12 @@ export async function PATCH(request: Request, { params }: Ctx) {
       .from('reconciliations')
       .update({ open_mismatches: openCount ?? 0 })
       .eq('id', id)
+
+    // 4. Audit log (non-blocking)
+    const { data: profile } = await supabase
+      .from('users').select('name').eq('id', user.id).maybeSingle()
+    await logAudit(admin, mb.org_id, id, decision, user.id,
+      (profile as { name?: string } | null)?.name ?? null)
 
     return NextResponse.json({ mismatch: updated, open_mismatches: openCount ?? 0 })
   } catch (err) {

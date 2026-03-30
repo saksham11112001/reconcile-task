@@ -48,9 +48,18 @@ export default async function OrganisationSettingsPage() {
           </div>
 
           {isOwnerOrAdmin && (
-            <p style={{ margin: '1.5rem 0 0', fontSize: 13, color: 'var(--text-muted)' }}>
-              Editing organisation details — coming soon.
-            </p>
+            <div style={{ marginTop: '1.5rem', paddingTop: '1rem',
+              borderTop: '1px solid var(--border)' }}>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>
+                To update your organisation name or billing email, contact support or update
+                directly in your Supabase project's{' '}
+                <code style={{ fontSize: 12, background: 'var(--surface-subtle)',
+                  padding: '1px 5px', borderRadius: 3, border: '1px solid var(--border)' }}>
+                  organisations
+                </code>{' '}
+                table.
+              </p>
+            </div>
           )}
         </div>
       </div>
